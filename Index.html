@@ -1,1 +1,320 @@
 
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OGAMES Blackjack 21</title>
+<style>
+*{box-sizing:border-box}
+body{
+ margin:0;
+ background:radial-gradient(circle at top,#26344c,#080d17 80%);
+ color:white;
+ font-family:Arial,sans-serif;
+ text-align:center;
+ min-height:100vh;
+}
+main{max-width:750px;margin:auto;padding:16px}
+h1{
+ color:#f7d07c;
+ letter-spacing:3px;
+ font-size:30px;
+ margin-bottom:5px;
+}
+.subtitle{color:#a8b5c9;font-size:12px;letter-spacing:2px}
+.scores{
+ display:grid;
+ grid-template-columns:repeat(4,1fr);
+ gap:7px;
+ margin:20px 0;
+}
+.score{
+ background:#19263b;
+ border:1px solid #35465f;
+ padding:12px 4px;
+ border-radius:12px;
+ font-size:11px;
+}
+.score b{
+ display:block;
+ font-size:26px;
+ color:#f7d07c;
+ margin-top:6px;
+}
+.table{
+ background:radial-gradient(ellipse,#197355,#063e30);
+ border:9px solid #80562d;
+ border-radius:42% 42% 18% 18% / 18% 18% 10% 10%;
+ padding:25px 10px;
+ min-height:445px;
+ box-shadow:0 15px 35px #0009;
+}
+h3{font-size:14px;color:#f8e1a6}
+.cards{
+ display:flex;
+ justify-content:center;
+ gap:6px;
+ min-height:105px;
+ flex-wrap:wrap;
+}
+.card{
+ width:65px;
+ height:95px;
+ background:#fff;
+ border-radius:9px;
+ color:#162033;
+ display:flex;
+ align-items:center;
+ justify-content:center;
+ font-size:27px;
+ font-weight:bold;
+ box-shadow:0 4px 9px #0006;
+}
+.red{color:#d32939}
+.back{
+ background:repeating-linear-gradient(45deg,#284c91,#284c91 7px,#1a346b 7px,#1a346b 14px);
+ color:white;
+ border:3px solid white;
+}
+.message{
+ color:#ffe19a;
+ font-weight:bold;
+ margin:22px 12px;
+ padding:14px 0;
+ border-top:1px solid #ffffff55;
+ border-bottom:1px solid #ffffff55;
+ min-height:50px;
+}
+button{
+ border:0;
+ border-radius:10px;
+ padding:15px 20px;
+ margin:5px;
+ font-weight:bold;
+ cursor:pointer;
+}
+button:disabled{opacity:.35}
+.hit{background:#29d083;color:#062719}
+.stand{background:#f5c25d;color:#352409}
+.next{background:#69a8ff;color:#10203d}
+.notice{
+ color:#aab7c9;
+ font-size:12px;
+ line-height:1.7;
+ margin-top:25px;
+}
+@media(max-width:420px){
+ .card{width:53px;height:79px;font-size:23px}
+ h1{font-size:25px}
+ button{padding:14px}
+}
+</style>
+</head>
+<body>
+<main>
+<h1>♠ BLACKJACK 21 ♠</h1>
+<div class="subtitle">OGAMES CASINO DEMO</div>
+
+<div class="scores">
+ <div class="score">YOU<b id="wins">0</b></div>
+ <div class="score">DEALER<b id="losses">0</b></div>
+ <div class="score">TIES<b id="ties">0</b></div>
+ <div class="score">STREAK<b id="streak">0</b></div>
+</div>
+
+<div class="table">
+ <h3>DEALER — <span id="dealerTotal">?</span></h3>
+ <div class="cards" id="dealer"></div>
+
+ <div class="message" id="message">HIT OR STAND?</div>
+
+ <h3>YOUR HAND — <span id="playerTotal">0</span></h3>
+ <div class="cards" id="player"></div>
+</div>
+
+<div style="margin-top:20px">
+ <button class="hit" id="hit" onclick="hit()">＋ HIT</button>
+ <button class="stand" id="stand" onclick="stand()">✋ STAND</button>
+ <button class="next" id="next" onclick="newRound()">↻ NEXT ROUND</button>
+</div>
+
+<p>ROUND <span id="round">1</span></p>
+
+<p class="notice">
+ SCRIPTED DEMO — NOT FAIR BLACKJACK.<br>
+ First two rounds favor the player or a tie.
+ After three consecutive wins, the next round is a scripted dealer win.
+ No real-money gambling or prizes.
+</p>
+</main>
+
+<script>
+let wins=0,losses=0,ties=0,streak=0,round=0;
+let player=[],dealer=[],deck=[];
+let finished=true,revealed=false,mode="";
+
+const $=id=>document.getElementById(id);
+
+function makeDeck(){
+ return ["♠","♥","♦","♣"].flatMap(s=>
+  ["A","2","3","4","5","6","7","8","9","10","J","Q","K"]
+  .map(r=>({r,s}))
+ );
+}
+
+function draw(){
+ if(!deck.length)deck=makeDeck();
+ return deck.splice(Math.floor(Math.random()*deck.length),1)[0];
+}
+
+function take(rank){
+ let i=deck.findIndex(c=>c.r===rank);
+ return i<0?draw():deck.splice(i,1)[0];
+}
+
+function score(hand){
+ let n=0,aces=0;
+ for(let c of hand){
+  if(c.r==="A"){n+=11;aces++}
+  else if(["J","Q","K"].includes(c.r))n+=10;
+  else n+=Number(c.r);
+ }
+ while(n>21&&aces){n-=10;aces--}
+ return n;
+}
+
+function showCards(id,hand,hide){
+ $(id).innerHTML="";
+ hand.forEach((c,i)=>{
+  let el=document.createElement("div");
+  el.className="card";
+  if(hide&&i===1){
+   el.classList.add("back");
+   el.textContent="♠";
+  }else{
+   if(c.s==="♥"||c.s==="♦")el.classList.add("red");
+   el.textContent=c.r+c.s;
+  }
+  $(id).appendChild(el);
+ });
+}
+
+function render(){
+ showCards("player",player,false);
+ showCards("dealer",dealer,!revealed);
+ $("playerTotal").textContent=score(player);
+ $("dealerTotal").textContent=revealed?score(dealer):"?";
+ $("wins").textContent=wins;
+ $("losses").textContent=losses;
+ $("ties").textContent=ties;
+ $("streak").textContent=streak;
+ $("round").textContent=round;
+ $("hit").disabled=finished;
+ $("stand").disabled=finished;
+ $("next").disabled=!finished;
+}
+
+function newRound(){
+ if(!finished)return;
+ round++;
+ deck=makeDeck();
+ finished=false;
+ revealed=false;
+
+ if(round<=2){
+  mode=Math.random()<0.2?"tie":"easy";
+ }else if(streak>=3){
+  mode="loss";
+ }else{
+  let r=Math.random();
+  mode=r<0.25?"easy":r<0.4?"tie":"normal";
+ }
+
+ if(mode==="easy"){
+  player=[take("10"),take("9")];
+  dealer=[take("8"),take("7")];
+ }else if(mode==="tie"){
+  player=[take("10"),take("8")];
+  dealer=[take("J"),take("8")];
+ }else if(mode==="loss"){
+  player=[take("10"),take("6")];
+  dealer=[take("K"),take("9")];
+ }else{
+  player=[draw(),draw()];
+  dealer=[draw(),draw()];
+ }
+
+ $("message").textContent="HIT OR STAND?";
+ render();
+ if(score(player)===21)stand();
+}
+
+function hit(){
+ if(finished)return;
+
+ if(mode==="loss"){
+  player.push(take("K"));
+ }else{
+  player.push(draw());
+ }
+
+ if(score(player)>21){
+  finish("dealer");
+ }else if(score(player)===21){
+  stand();
+ }else{
+  render();
+ }
+}
+
+function stand(){
+ if(finished)return;
+ revealed=true;
+
+ if(mode==="loss"){
+  if(score(player)>19){
+   dealer=[take("A"),take("K")];
+  }
+ }else if(mode==="tie"&&score(player)===18){
+  // Keep the dealer at 18.
+ }else if(mode==="easy"&&score(player)===19){
+  // Keep the dealer at 15.
+ }else{
+  while(score(dealer)<17)dealer.push(draw());
+ }
+
+ let p=score(player),d=score(dealer);
+
+ if(p>21)finish("dealer");
+ else if(d>21)finish("player");
+ else if(p>d)finish("player");
+ else if(d>p)finish("dealer");
+ else finish("tie");
+}
+
+function finish(result){
+ if(finished)return;
+ finished=true;
+ revealed=true;
+
+ if(result==="player"){
+  wins++;
+  streak++;
+  $("message").textContent="🏆 YOU WIN! +1 POINT";
+ }else if(result==="dealer"){
+  losses++;
+  streak=0;
+  $("message").textContent="❌ DEALER WINS! +1 POINT";
+ }else{
+  ties++;
+  $("message").textContent="🤝 TIE! NO POINTS";
+ }
+ render();
+}
+
+newRound();
+</script>
+</body>
+</html>
+
